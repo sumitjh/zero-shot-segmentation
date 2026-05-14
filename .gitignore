@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+*.pth
+*.jpg
+*.png
+*.jpeg
+!demo/examples/
+.env
