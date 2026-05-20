@@ -37,11 +37,6 @@ def _patch_vitdet_for_float32():
 class SAM3Model:
     def __init__(self, checkpoint_path: str, bpe_path: str):
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        # including_emulation=False → True only on Ampere (sm_80+) and newer
-        self.bf16_native = (
-            self.device == "cuda"
-            and torch.cuda.is_bf16_supported(including_emulation=False)
-        )
 
         model = build_sam3_image_model(
             bpe_path=bpe_path,
@@ -50,15 +45,11 @@ class SAM3Model:
             device=self.device,
         )
 
-        if self.bf16_native:
-            # Ampere+: run inference under autocast so float32 checkpoint weights
-            # are promoted to BFloat16 on the fly — matches what addmm_act expects.
-            pass
-        else:
-            # Turing / no native BF16: cast all weights to float32 and patch the
-            # fused MLP kernel so the dtype stays consistent throughout.
-            model = model.float()
-            _patch_vitdet_for_float32()
+        # Always cast weights to float32 and patch the fused MLP kernel.
+        # On Ampere/H200, segment_with_text wraps inference in autocast(bfloat16)
+        # which promotes ops on the fly; on Turing it stays float32 throughout.
+        model = model.float()
+        _patch_vitdet_for_float32()
 
         self.processor = Sam3Processor(model, confidence_threshold=0.3)
 
@@ -68,9 +59,15 @@ class SAM3Model:
         Returns list of dicts with segmentation (bool HxW), bbox (xywh), area, score.
         """
         pil_image = PILImage.fromarray(image)
+        # Defer bf16 check to call time: works on both local Turing (float32)
+        # and ZeroGPU H200 (native bfloat16 inside @spaces.GPU context).
+        bf16 = (
+            self.device == "cuda"
+            and torch.cuda.is_bf16_supported(including_emulation=False)
+        )
         ctx = (
             torch.autocast(device_type="cuda", dtype=torch.bfloat16)
-            if self.bf16_native
+            if bf16
             else contextlib.nullcontext()
         )
         with ctx:
@@ -99,3 +96,8 @@ class SAM3Model:
 
         results.sort(key=lambda m: m["score"], reverse=True)
         return results
+
+    def move_to(self, device: str):
+        self.processor.model.to(device)
+        self.processor.device = device
+        self.device = device

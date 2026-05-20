@@ -1,0 +1,8 @@
+numpy<2
+pillow
+open-clip-torch
+huggingface_hub
+spaces
+git+https://github.com/facebookresearch/segment-anything.git
+git+https://github.com/facebookresearch/segment-anything-2.git
+git+https://github.com/facebookresearch/sam3.git

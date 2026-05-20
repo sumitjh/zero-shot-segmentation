@@ -22,3 +22,7 @@ class SAM1Model:
         masks = self.generator.generate(image)
         masks.sort(key=lambda m: m["area"], reverse=True)
         return masks
+
+    def move_to(self, device: str):
+        self.generator.predictor.model.to(device)
+        self.device = device
