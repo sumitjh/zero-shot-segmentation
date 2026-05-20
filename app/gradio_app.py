@@ -9,14 +9,29 @@ from app.models.clip_model import rank_masks_by_prompt
 from app.utils import apply_mask_overlay, draw_bbox
 
 COLORS = [(0, 120, 255), (255, 80, 0), (0, 200, 80)]
+MAX_DIM = 1024  # SAM is trained at 1024px; larger inputs just waste VRAM
 
 MODEL_CHOICES = ["sam1", "sam2", "sam3"]
 AVAILABLE = [m for m in MODEL_CHOICES if registry.is_available(m)]
 
 
+def _cap_image(img_np: np.ndarray) -> np.ndarray:
+    h, w = img_np.shape[:2]
+    if max(h, w) <= MAX_DIM:
+        return img_np
+    scale = MAX_DIM / max(h, w)
+    new_w, new_h = int(w * scale), int(h * scale)
+    pil = PILImage.fromarray(img_np).resize((new_w, new_h), PILImage.LANCZOS)
+    return np.array(pil)
+
+
 def _run_inference(img_np: np.ndarray, prompt: str, model_version: str, top_k: int):
     """Run one model and return (annotated_image, metrics_dict, masks_list)."""
     model = registry.get(model_version)
+    # Restore to GPU in case a previous compare run offloaded it to CPU
+    target = "cuda" if torch.cuda.is_available() else "cpu"
+    if model.device != target:
+        model.move_to(target)
     torch.cuda.reset_peak_memory_stats() if torch.cuda.is_available() else None
 
     t0 = time.perf_counter()
@@ -63,7 +78,7 @@ def segment_single(image, prompt, model_version, top_k):
     if model_version not in AVAILABLE:
         return None, f"{model_version} is not available.", ""
 
-    img_np = np.array(image.convert("RGB"))
+    img_np = _cap_image(np.array(image.convert("RGB")))
     annotated, metrics, masks = _run_inference(img_np, prompt, model_version, int(top_k))
 
     metrics_md = (
@@ -74,8 +89,8 @@ def segment_single(image, prompt, model_version, top_k):
     )
 
     rows = "\n".join(
-        f"| {m['rank']} | {m['clip_score']:.4f} | {m['area']:,} | {[round(v) for v in m['bbox']]} |"
-        for m in masks
+        f"| {i+1} | {m['clip_score']:.4f} | {m['area']:,} | {[round(v) for v in m['bbox']]} |"
+        for i, m in enumerate(masks)
     )
     table_md = (
         "| Rank | Score | Area (px) | BBox (xywh) |\n"
@@ -92,12 +107,15 @@ def segment_compare(image, prompt, top_k):
     if not prompt.strip():
         return None, None, None, "Enter a text prompt."
 
-    img_np = np.array(image.convert("RGB"))
+    img_np = _cap_image(np.array(image.convert("RGB")))
     results = {}
 
     for model_version in AVAILABLE:
         annotated, metrics, _ = _run_inference(img_np, prompt, model_version, int(top_k))
         results[model_version] = (annotated, metrics)
+        # Offload to CPU before loading the next model to avoid OOM on 8GB VRAM
+        registry.get(model_version).move_to("cpu")
+        torch.cuda.empty_cache()
 
     def get(name):
         return results[name][0] if name in results else None
