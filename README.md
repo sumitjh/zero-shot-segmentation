@@ -2,11 +2,11 @@
 title: SAM Benchmark Sandbox
 emoji: 🎯
 colorFrom: blue
-colorTo: orange
+colorTo: indigo
 sdk: gradio
 app_file: app.py
 pinned: false
-hardware: cpu-basic
+hardware: zero-gpu
 ---
 
 # SAM Benchmark Sandbox
