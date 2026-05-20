@@ -17,14 +17,18 @@ def draw_bbox(image: np.ndarray, mask: dict, color: tuple = (0, 120, 255), thick
     return cv2.rectangle(image.copy(), (x, y), (x + w, y + h), color, thickness)
 
 
-def masks_to_response(masks: list[dict]) -> list[dict]:
+def masks_to_response(masks: list[dict], include_rle: bool = False) -> list[dict]:
     """Serialize masks for API response (strip numpy arrays, keep metadata)."""
-    return [
-        {
+    out = []
+    for i, m in enumerate(masks):
+        entry = {
             "rank": i + 1,
-            "clip_score": round(m["clip_score"], 4),
-            "area": m["area"],
+            "clip_score": round(m.get("clip_score", 0.0), 4),
+            "area": int(m["area"]),
             "bbox": [int(v) for v in m["bbox"]],
         }
-        for i, m in enumerate(masks)
-    ]
+        if include_rle:
+            seg = m["segmentation"]
+            entry["mask_rle"] = seg.flatten().tolist()
+        out.append(entry)
+    return out

@@ -6,3 +6,5 @@ __pycache__/
 *.jpeg
 !demo/examples/
 .env
+*.swp
+*.swo
