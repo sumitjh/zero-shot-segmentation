@@ -80,8 +80,8 @@ class SAM3Model:
             # which promotes ops on the fly; on Turing it stays float32 throughout.
             model = model.float()
             _patch_vitdet_for_float32()
-            # Sam3Processor also hardcodes device="cuda" internally — keep context active.
-            self.processor = Sam3Processor(model, confidence_threshold=0.3)
+            # Pass device explicitly so Sam3Processor's find_stage tensors land on CPU.
+            self.processor = Sam3Processor(model, device=self.device, confidence_threshold=0.3)
 
     def segment_with_text(self, image: np.ndarray, prompt: str) -> list[dict]:
         """
@@ -131,3 +131,10 @@ class SAM3Model:
         self.processor.model.to(device)
         self.processor.device = device
         self.device = device
+        # find_stage holds template tensors (img_ids, text_ids) that must be on
+        # the same device as the model; move them explicitly.
+        fs = self.processor.find_stage
+        if fs.img_ids is not None:
+            fs.img_ids = fs.img_ids.to(device)
+        if fs.text_ids is not None:
+            fs.text_ids = fs.text_ids.to(device)
