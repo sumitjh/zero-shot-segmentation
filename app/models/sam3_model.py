@@ -9,6 +9,16 @@ from sam3.model.sam3_image_processor import Sam3Processor
 
 from contextlib import contextmanager
 
+# ZeroGPU's virtual GPU doesn't support CUDA memory pinning (cudaHostRegister).
+# pin_memory() is a performance-only hint — safe to make it a no-op on failure.
+_orig_pin_memory = torch.Tensor.pin_memory
+def _safe_pin_memory(self, device=None):
+    try:
+        return _orig_pin_memory(self) if device is None else _orig_pin_memory(self, device)
+    except RuntimeError:
+        return self
+torch.Tensor.pin_memory = _safe_pin_memory
+
 
 @contextmanager
 def _redirect_cuda_to_cpu():
