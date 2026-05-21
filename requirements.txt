@@ -2,6 +2,7 @@ numpy<2
 pillow
 einops
 pycocotools
+psutil
 open-clip-torch
 huggingface_hub
 spaces
