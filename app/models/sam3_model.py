@@ -7,31 +7,34 @@ from sam3 import build_sam3_image_model
 from sam3.model.sam3_image_processor import Sam3Processor
 
 
-def _patch_position_encoding_device():
+from contextlib import contextmanager
+
+
+@contextmanager
+def _redirect_cuda_to_cpu():
     """
-    SAM3's PositionEmbeddingSine.__init__ hardcodes device="cuda" when precomputing
-    position encoding cache. Patch it to use the tensor's natural device (CPU)
-    so model construction works outside a GPU context (e.g. ZeroGPU startup).
+    Context manager that intercepts torch tensor-creation ops and redirects
+    any hardcoded device='cuda' to 'cpu'.  SAM3's model_builder hardcodes
+    device='cuda' in PositionEmbeddingSine, TransformerDecoder, and potentially
+    other modules — this single context covers them all.
     """
-    import sam3.model.position_encoding as pe_module
+    _ops = ["zeros", "ones", "empty", "arange", "linspace", "full", "rand", "randn"]
+    originals = {name: getattr(torch, name) for name in _ops}
 
-    _orig_init = pe_module.PositionEmbeddingSine.__init__
+    def _make_safe(orig_fn):
+        def _safe(*args, **kwargs):
+            if kwargs.get("device") == "cuda":
+                kwargs["device"] = "cpu"
+            return orig_fn(*args, **kwargs)
+        return _safe
 
-    def _safe_init(self, *args, **kwargs):
-        _orig_zeros = torch.zeros
-
-        def _zeros_no_forced_cuda(*a, **kw):
-            if kw.get("device") == "cuda":
-                kw["device"] = "cpu"
-            return _orig_zeros(*a, **kw)
-
-        torch.zeros = _zeros_no_forced_cuda
-        try:
-            _orig_init(self, *args, **kwargs)
-        finally:
-            torch.zeros = _orig_zeros
-
-    pe_module.PositionEmbeddingSine.__init__ = _safe_init
+    for name, orig in originals.items():
+        setattr(torch, name, _make_safe(orig))
+    try:
+        yield
+    finally:
+        for name, orig in originals.items():
+            setattr(torch, name, orig)
 
 
 def _patch_vitdet_for_float32():
@@ -65,13 +68,13 @@ class SAM3Model:
     def __init__(self, checkpoint_path: str, bpe_path: str, device: str = None):
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
 
-        _patch_position_encoding_device()
-        model = build_sam3_image_model(
-            bpe_path=bpe_path,
-            checkpoint_path=checkpoint_path,
-            load_from_HF=False,
-            device=self.device,
-        )
+        with _redirect_cuda_to_cpu():
+            model = build_sam3_image_model(
+                bpe_path=bpe_path,
+                checkpoint_path=checkpoint_path,
+                load_from_HF=False,
+                device=self.device,
+            )
 
         # Always cast weights to float32 and patch the fused MLP kernel.
         # On Ampere/H200, segment_with_text wraps inference in autocast(bfloat16)
