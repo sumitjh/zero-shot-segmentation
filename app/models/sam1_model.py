@@ -4,8 +4,8 @@ from segment_anything import sam_model_registry, SamAutomaticMaskGenerator
 
 
 class SAM1Model:
-    def __init__(self, checkpoint_path: str):
-        device = "cuda" if torch.cuda.is_available() else "cpu"
+    def __init__(self, checkpoint_path: str, device: str = None):
+        device = device or ("cuda" if torch.cuda.is_available() else "cpu")
         sam = sam_model_registry["vit_b"](checkpoint=checkpoint_path)
         sam.to(device)
         self.generator = SamAutomaticMaskGenerator(

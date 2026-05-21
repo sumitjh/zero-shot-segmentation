@@ -30,9 +30,9 @@ _sam2_ckpt = hf_hub_download("facebook/sam2-hiera-base-plus", "sam2_hiera_base_p
 _sam3_ckpt = hf_hub_download("facebook/sam3.1", "sam3.1_multiplex.pt")
 print("Building models on CPU…")
 _models = {
-    "sam1": SAM1Model(_sam1_ckpt),
-    "sam2": SAM2Model(_sam2_ckpt),
-    "sam3": SAM3Model(checkpoint_path=_sam3_ckpt, bpe_path=None),
+    "sam1": SAM1Model(_sam1_ckpt, device="cpu"),
+    "sam2": SAM2Model(_sam2_ckpt, device="cpu"),
+    "sam3": SAM3Model(checkpoint_path=_sam3_ckpt, bpe_path=None, device="cpu"),
 }
 print("Models ready.")
 

@@ -35,8 +35,8 @@ def _patch_vitdet_for_float32():
 
 
 class SAM3Model:
-    def __init__(self, checkpoint_path: str, bpe_path: str):
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+    def __init__(self, checkpoint_path: str, bpe_path: str, device: str = None):
+        self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
 
         model = build_sam3_image_model(
             bpe_path=bpe_path,

@@ -5,8 +5,8 @@ from sam2.automatic_mask_generator import SAM2AutomaticMaskGenerator
 
 
 class SAM2Model:
-    def __init__(self, checkpoint_path: str):
-        device = "cuda" if torch.cuda.is_available() else "cpu"
+    def __init__(self, checkpoint_path: str, device: str = None):
+        device = device or ("cuda" if torch.cuda.is_available() else "cpu")
         model = build_sam2("sam2_hiera_b+.yaml", checkpoint_path, device=device)
         self.generator = SAM2AutomaticMaskGenerator(
             model=model,
