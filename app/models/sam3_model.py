@@ -18,7 +18,7 @@ def _redirect_cuda_to_cpu():
     device='cuda' in PositionEmbeddingSine, TransformerDecoder, and potentially
     other modules — this single context covers them all.
     """
-    _ops = ["zeros", "ones", "empty", "arange", "linspace", "full", "rand", "randn"]
+    _ops = ["zeros", "ones", "empty", "arange", "linspace", "full", "rand", "randn", "tensor"]
     originals = {name: getattr(torch, name) for name in _ops}
 
     def _make_safe(orig_fn):
@@ -75,14 +75,13 @@ class SAM3Model:
                 load_from_HF=False,
                 device=self.device,
             )
-
-        # Always cast weights to float32 and patch the fused MLP kernel.
-        # On Ampere/H200, segment_with_text wraps inference in autocast(bfloat16)
-        # which promotes ops on the fly; on Turing it stays float32 throughout.
-        model = model.float()
-        _patch_vitdet_for_float32()
-
-        self.processor = Sam3Processor(model, confidence_threshold=0.3)
+            # Always cast weights to float32 and patch the fused MLP kernel.
+            # On Ampere/H200, segment_with_text wraps inference in autocast(bfloat16)
+            # which promotes ops on the fly; on Turing it stays float32 throughout.
+            model = model.float()
+            _patch_vitdet_for_float32()
+            # Sam3Processor also hardcodes device="cuda" internally — keep context active.
+            self.processor = Sam3Processor(model, confidence_threshold=0.3)
 
     def segment_with_text(self, image: np.ndarray, prompt: str) -> list[dict]:
         """
