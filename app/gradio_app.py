@@ -39,8 +39,6 @@ def _run_inference(img_np: np.ndarray, prompt: str, model_version: str, top_k: i
     if model_version == "sam3":
         masks = model.segment_with_text(img_np, prompt)
         masks = masks[:top_k]
-        for m in masks:
-            m["clip_score"] = m.pop("score")
     else:
         raw_masks = model.generate_masks(img_np)
         masks = rank_masks_by_prompt(img_np, raw_masks, prompt, top_k=top_k)
@@ -89,7 +87,7 @@ def segment_single(image, prompt, model_version, top_k):
     )
 
     rows = "\n".join(
-        f"| {i+1} | {m['clip_score']:.4f} | {m['area']:,} | {[round(v) for v in m['bbox']]} |"
+        f"| {i+1} | {m['score']:.4f} | {m['area']:,} | {[round(v) for v in m['bbox']]} |"
         for i, m in enumerate(masks)
     )
     table_md = (

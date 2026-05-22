@@ -60,8 +60,6 @@ async def segment(
     if model_version == "sam3":
         masks = model.segment_with_text(img_np, prompt)
         masks = masks[:top_k]
-        for m in masks:
-            m["clip_score"] = m.pop("score")  # normalise key name
     else:
         raw_masks = model.generate_masks(img_np)
         if prompt_type == "text":
@@ -69,7 +67,7 @@ async def segment(
         else:
             masks = raw_masks[:top_k]
             for m in masks:
-                m["clip_score"] = 0.0
+                m["score"] = 0.0
 
     inference_ms = round((time.perf_counter() - t0) * 1000, 1)
 

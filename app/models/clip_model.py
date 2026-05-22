@@ -24,7 +24,7 @@ def rank_masks_by_prompt(
     """
     Score each SAM mask region against the text prompt using CLIP.
     Returns top_k masks sorted by CLIP similarity descending,
-    each with an added 'clip_score' field.
+    each with an added 'score' field (CLIP cosine similarity).
     """
     model, preprocess = get_clip_model()
     device = next(model.parameters()).device
@@ -52,7 +52,7 @@ def rank_masks_by_prompt(
             img_features = model.encode_image(tensor)
             img_features /= img_features.norm(dim=-1, keepdim=True)
             score = (img_features @ text_features.T).item()
-        scored.append({**mask, "clip_score": score})
+        scored.append({**mask, "score": score})
 
-    scored.sort(key=lambda m: m["clip_score"], reverse=True)
+    scored.sort(key=lambda m: m["score"], reverse=True)
     return scored[:top_k]

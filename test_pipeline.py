@@ -29,7 +29,7 @@ print("Ranking with CLIP...")
 top_masks = rank_masks_by_prompt(image, masks, PROMPT, top_k=3)
 
 for i, m in enumerate(top_masks):
-    print(f"  Rank {i+1}: CLIP score={m['clip_score']:.4f}  area={m['area']}  bbox={[int(v) for v in m['bbox']]}")
+    print(f"  Rank {i+1}: score={m['score']:.4f}  area={m['area']}  bbox={[int(v) for v in m['bbox']]}")
 
 # save overlay of top mask
 result = apply_mask_overlay(image, top_masks[0])

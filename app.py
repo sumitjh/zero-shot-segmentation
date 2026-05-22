@@ -62,8 +62,6 @@ def _run_inference(img_np: np.ndarray, prompt: str, model_name: str, top_k: int)
     if model_name == "sam3":
         masks = model.segment_with_text(img_np, prompt)
         masks = masks[:top_k]
-        for m in masks:
-            m["clip_score"] = m.pop("score")
     else:
         raw_masks = model.generate_masks(img_np)
         masks = rank_masks_by_prompt(img_np, raw_masks, prompt, top_k=top_k)
@@ -108,7 +106,7 @@ def _segment_single_impl(image, prompt, model_name, top_k):
         f"**Masks found:** {metrics['mask_count']}"
     )
     rows = "\n".join(
-        f"| {i+1} | {m['clip_score']:.4f} | {m['area']:,} | {[round(v) for v in m['bbox']]} |"
+        f"| {i+1} | {m['score']:.4f} | {m['area']:,} | {[round(v) for v in m['bbox']]} |"
         for i, m in enumerate(masks)
     )
     table_md = (
@@ -143,7 +141,7 @@ def _segment_compare_impl(image, prompt, top_k):
     for name, (_, m) in results.items():
         err = m.get("error", "")
         if err:
-            rows.append(f"| {name} | — | — | — | ERROR: {err[:50]} |")
+            rows.append(f"| {name} | — | — | ERROR: {err[:60]} |")
         else:
             rows.append(f"| {name} | {m['inference_ms']} ms | {m['peak_gpu_mb']} MB | {m['mask_count']} |")
     summary_md = (

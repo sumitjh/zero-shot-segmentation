@@ -23,7 +23,7 @@ def masks_to_response(masks: list[dict], include_rle: bool = False) -> list[dict
     for i, m in enumerate(masks):
         entry = {
             "rank": i + 1,
-            "clip_score": round(m.get("clip_score", 0.0), 4),
+            "score": round(m.get("score", 0.0), 4),
             "area": int(m["area"]),
             "bbox": [int(v) for v in m["bbox"]],
         }
